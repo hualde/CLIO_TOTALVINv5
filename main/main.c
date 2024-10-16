@@ -15,6 +15,7 @@
 #include "immo_handling.h"
 #include "dtc_handling.h"
 #include "utils.h"
+#include "wifi_server.h"
 
 // Global variables
 uint8_t stored_bytes_vehicle[VIN_LENGTH];
@@ -29,6 +30,9 @@ TimerHandle_t restart_timer;
 
 void app_main(void) {
     vin_event_group = xEventGroupCreate();
+
+    // Initialize Wi-Fi and web server
+    init_wifi_server();
 
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(TX_GPIO_NUM, RX_GPIO_NUM, TWAI_MODE_NORMAL);
     g_config.rx_queue_len = RX_QUEUE_SIZE;
