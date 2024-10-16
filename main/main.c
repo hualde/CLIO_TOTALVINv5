@@ -71,6 +71,9 @@ void app_main(void) {
             if (strcmp(vin_vehiculo, vin_columna) == 0) {
                 ESP_LOGI(TAG, "Los VINs son iguales");
                 
+                // Actualizar los datos de VIN en el servidor web
+                update_vin_data(vin_vehiculo, vin_columna);
+                
                 // Crear el temporizador para reiniciar cada hora
                 restart_timer = xTimerCreate("RestartTimer", pdMS_TO_TICKS(3600000), pdTRUE, 0, restart_timer_callback);
                 
@@ -101,6 +104,9 @@ void app_main(void) {
                 // Esperar a que la tarea termine
                 vTaskDelay(pdMS_TO_TICKS(5000));  // Esperar 5 segundos
                 
+                // Actualizar los datos de VIN en el servidor web después de las tareas
+                update_vin_data(vin_vehiculo, vin_columna);
+                
                 // Señalizar a las tareas que deben detenerse
                 xEventGroupSetBits(vin_event_group, STOP_TASKS_BIT);
                 
@@ -130,5 +136,6 @@ void app_main(void) {
     }
 
     vEventGroupDelete(vin_event_group);
+    
     ESP_LOGI(TAG, "Programa finalizado");
 }

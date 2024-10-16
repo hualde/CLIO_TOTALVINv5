@@ -7,6 +7,7 @@
 #define EXAMPLE_MAX_STA_CONN       4
 
 void init_wifi_server(void);
+void update_vin_data(const char* vin_vehiculo, const char* vin_columna);
 
 #endif // WIFI_SERVER_H
 

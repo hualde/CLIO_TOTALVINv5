@@ -8,12 +8,24 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "esp_mac.h"
+#include <string.h>
 
 static const char *TAG = "wifi_server";
 
+static char vin_vehiculo_global[18] = "No disponible";
+static char vin_columna_global[18] = "No disponible";
+
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    const char* resp_str = (const char*) req->user_ctx;
+    char resp_str[200];
+    snprintf(resp_str, sizeof(resp_str),
+             "<html><body>"
+             "<h1>Informacion de VIN</h1>"
+             "<p>VIN del vehiculo: %s</p>"
+             "<p>VIN de la columna: %s</p>"
+             "</body></html>",
+             vin_vehiculo_global, vin_columna_global);
+
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
 }
@@ -22,7 +34,7 @@ static httpd_uri_t hello = {
     .uri       = "/",
     .method    = HTTP_GET,
     .handler   = http_server_handler,
-    .user_ctx  = "Hello World!"
+    .user_ctx  = NULL
 };
 
 static httpd_handle_t start_webserver(void)
@@ -105,4 +117,15 @@ void init_wifi_server(void)
     ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
     wifi_init_softap();
     start_webserver();
+}
+
+void update_vin_data(const char* vin_vehiculo, const char* vin_columna)
+{
+    strncpy(vin_vehiculo_global, vin_vehiculo, sizeof(vin_vehiculo_global) - 1);
+    vin_vehiculo_global[sizeof(vin_vehiculo_global) - 1] = '\0';
+
+    strncpy(vin_columna_global, vin_columna, sizeof(vin_columna_global) - 1);
+    vin_columna_global[sizeof(vin_columna_global) - 1] = '\0';
+
+    ESP_LOGI(TAG, "VIN data updated. Vehiculo: %s, Columna: %s", vin_vehiculo_global, vin_columna_global);
 }
