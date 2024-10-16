@@ -85,6 +85,12 @@ void app_main(void) {
                     while (1) {
                         xTaskCreate(clear_dtc_task, "clear_dtc_task", 2048, NULL, 5, NULL);
                         vTaskDelay(pdMS_TO_TICKS(30000));  // Esperar 30 segundos
+                        
+                        // Comprobar si se debe detener
+                        EventBits_t bits = xEventGroupGetBits(vin_event_group);
+                        if (bits & STOP_TASKS_BIT) {
+                            break;
+                        }
                     }
                 } else {
                     ESP_LOGE(TAG, "No se pudo crear el temporizador de reinicio");

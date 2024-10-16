@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "app-template",
-    "project_version":    "218f60d-dirty",
+    "project_version":    "f3626a5-dirty",
     "project_path":       "C:/Users/jhualde/Desktop/workspace/CLIO_TOTALVINv5",
     "idf_path":           "C:/Users/jhualde/esp/v5.3.1/esp-idf",
     "build_dir":          "C:/Users/jhualde/Desktop/workspace/CLIO_TOTALVINv5/build",

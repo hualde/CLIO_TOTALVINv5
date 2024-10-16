@@ -14,26 +14,58 @@ static const char *TAG = "wifi_server";
 
 static char vin_vehiculo_global[18] = "No disponible";
 static char vin_columna_global[18] = "No disponible";
+static bool dtc_cleared = false;
+
+extern void clear_dtc_task(void *pvParameters);
 
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[200];
+    char resp_str[500];
+    const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
+    dtc_cleared = false; // Reset the flag
+
     snprintf(resp_str, sizeof(resp_str),
              "<html><body>"
              "<h1>Informacion de VIN</h1>"
              "<p>VIN del vehiculo: %s</p>"
              "<p>VIN de la columna: %s</p>"
+             "<form action='/clear_dtc' method='get'>"
+             "<input type='submit' value='Borrar DTC'>"
+             "</form>"
+             "%s"
              "</body></html>",
-             vin_vehiculo_global, vin_columna_global);
+             vin_vehiculo_global, vin_columna_global, dtc_message);
 
+    httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
 }
 
-static httpd_uri_t hello = {
+static esp_err_t clear_dtc_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Iniciando tarea de borrado de DTC desde el servidor web");
+    xTaskCreate(clear_dtc_task, "clear_dtc_task", 2048, NULL, 5, NULL);
+    
+    dtc_cleared = true;
+
+    // Redirect to the main page
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+static httpd_uri_t root = {
     .uri       = "/",
     .method    = HTTP_GET,
     .handler   = http_server_handler,
+    .user_ctx  = NULL
+};
+
+static httpd_uri_t clear_dtc = {
+    .uri       = "/clear_dtc",
+    .method    = HTTP_GET,
+    .handler   = clear_dtc_handler,
     .user_ctx  = NULL
 };
 
@@ -46,7 +78,8 @@ static httpd_handle_t start_webserver(void)
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Registering URI handlers");
-        httpd_register_uri_handler(server, &hello);
+        httpd_register_uri_handler(server, &root);
+        httpd_register_uri_handler(server, &clear_dtc);
         return server;
     }
 
