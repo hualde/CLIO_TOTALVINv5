@@ -21,6 +21,8 @@ static bool dtc_cleared = false;
 static bool status_has_been_checked = false;
 static bool real_status_loaded = false;
 static bool calibracion_instructions_shown = false;
+static char dtc_message[100] = "";
+static char status_message[100] = "";
 
 extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
@@ -29,34 +31,6 @@ extern void send_calibration_frames_task(void *pvParameters);
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
     char resp_str[2000];
-    const char* dtc_message = dtc_cleared ? "<p class='success-message'>DTC borrado exitosamente</p>" : "";
-    const char* calibracion_message = calibracion_instructions_shown ? 
-        "<div class='instructions'>"
-        "<h2>Instrucciones de calibración de ángulo:</h2>"
-        "<ol>"
-        "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
-        "<li>Gire el volante a la izquierda hasta el tope</li>"
-        "<li>Gire el volante a la derecha hasta el tope</li>"
-        "<li>Vuelva a centrar el volante/ruedas</li>"
-        "<li>Pulse el botón 'Enviar tramas de calibración'</li>"
-        "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
-        "</ol>"
-        "<form action='/send_calibration_frames' method='get'>"
-        "<input type='submit' value='Enviar tramas de calibración' class='button'>"
-        "</form>"
-        "</div>" : "";
-    
-    char status_str[100] = "";
-    if (status_has_been_checked && real_status_loaded) {
-        int current_status = get_global_status();
-        snprintf(status_str, sizeof(status_str), "<p class='status'>Estado actual: %d</p>", current_status);
-    } else if (status_has_been_checked && !real_status_loaded) {
-        snprintf(status_str, sizeof(status_str), "<p class='status'>Cargando estado...</p>");
-    }
-
-    char combined_status[200];
-    strncpy(combined_status, status_str, sizeof(combined_status));
-    combined_status[sizeof(combined_status) - 1] = '\0';
 
     // Generate the HTML response with improved styling
     snprintf(resp_str, sizeof(resp_str),
@@ -73,6 +47,8 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
              ".instructions h2 { color: #E4007B; }"
              ".instructions ol { padding-left: 20px; }"
+             ".action-container { display: flex; align-items: center; margin-bottom: 10px; }"
+             ".action-message { margin-left: 10px; }"
              "</style>"
              "</head><body>"
              "<h1>Información de VIN</h1>"
@@ -80,20 +56,23 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "<p><strong>VIN del vehículo:</strong> %s</p>"
              "<p><strong>VIN de la columna:</strong> %s</p>"
              "</div>"
+             "<div class='action-container'>"
              "<form action='/clear_dtc' method='get'>"
              "<input type='submit' value='Borrar DTC' class='button'>"
              "</form>"
+             "<span class='action-message'>%s</span>"
+             "</div>"
+             "<div class='action-container'>"
              "<form action='/check_status' method='get'>"
              "<input type='submit' value='Check Status' class='button'>"
              "</form>"
+             "<span class='action-message'>%s</span>"
+             "</div>"
              "<form action='/calibracion_angulo' method='get'>"
              "<input type='submit' value='Calibración de Ángulo' class='button'>"
              "</form>"
-             "%s"
-             "%s"
-             "%s"
              "</body></html>",
-             vin_vehiculo_global, vin_columna_global, dtc_message, calibracion_message, combined_status);
+             vin_vehiculo_global, vin_columna_global, dtc_message, status_message);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
@@ -106,6 +85,7 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
     xTaskCreate(clear_dtc_task, "clear_dtc_task", 2048, NULL, 5, NULL);
     
     dtc_cleared = true;
+    snprintf(dtc_message, sizeof(dtc_message), "DTC borrado exitosamente");
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -121,6 +101,7 @@ static esp_err_t check_status_handler(httpd_req_t *req)
     
     status_has_been_checked = true;
     real_status_loaded = false;  // Reset this flag when starting a new check
+    snprintf(status_message, sizeof(status_message), "Verificando estado...");
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -134,10 +115,39 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Mostrando instrucciones de calibración de ángulo");
     calibracion_instructions_shown = true;
 
-    // Redirect to the main page
-    httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
-    httpd_resp_send(req, NULL, 0);
+    // Instead of redirecting, we'll render the page with instructions
+    char resp_str[2000];
+    snprintf(resp_str, sizeof(resp_str),
+             "<html><head>"
+             "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+             "<style>"
+             "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
+             "h1, h2 { color: #333; }"
+             ".button { background-color: #E4007B; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }"
+             ".button:hover { background-color: #C4006B; }"
+             ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
+             "</style>"
+             "</head><body>"
+             "<h1>Calibración de Ángulo</h1>"
+             "<div class='instructions'>"
+             "<h2>Instrucciones de calibración de ángulo:</h2>"
+             "<ol>"
+             "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
+             "<li>Gire el volante a la izquierda hasta el tope</li>"
+             "<li>Gire el volante a la derecha hasta el tope</li>"
+             "<li>Vuelva a centrar el volante/ruedas</li>"
+             "<li>Pulse el botón 'Enviar tramas de calibración'</li>"
+             "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
+             "</ol>"
+             "<form action='/send_calibration_frames' method='get'>"
+             "<input type='submit' value='Enviar tramas de calibración' class='button'>"
+             "</form>"
+             "</div>"
+             "<br><a href='/' class='button'>Volver</a>"
+             "</body></html>");
+
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
 }
 
@@ -288,5 +298,5 @@ void update_vin_data(const char* vin_vehiculo, const char* vin_columna)
 void update_real_status(int status)
 {
     real_status_loaded = true;
-    // Aquí puedes añadir cualquier otra lógica necesaria para actualizar el estado
+    snprintf(status_message, sizeof(status_message), "Estado actual: %d", status);
 }
