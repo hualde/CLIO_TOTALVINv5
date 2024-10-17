@@ -24,12 +24,22 @@ static bool calibracion_executed = false;
 
 extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
+extern void calibracion_angulo_task(void *pvParameters);
 
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
     char resp_str[800];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
-    const char* calibracion_message = calibracion_executed ? "<p>Calibración de ángulo en progreso</p>" : "";
+    const char* calibracion_message = calibracion_executed ? 
+    "<p>Calibración de ángulo en progreso. Siga estas instrucciones:</p>"
+    "<ol>"
+    "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
+    "<li>Gire el volante a la izquierda hasta el tope</li>"
+    "<li>Gire el volante a la derecha hasta el tope</li>"
+    "<li>Vuelva a centrar el volante/ruedas y espere a que finalice la cuenta atrás</li>"
+    "<li>Una vez finalizada este proceso, apague el coche y vuelva a encenderlo</li>"
+    "</ol>"
+    "<p>Tiempo restante: <span id='countdown'></span></p>" : "";
     
     char status_str[100] = "";
     if (status_has_been_checked && real_status_loaded) {
