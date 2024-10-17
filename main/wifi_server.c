@@ -17,6 +17,8 @@ static char vin_vehiculo_global[18] = "No disponible";
 static char vin_columna_global[18] = "No disponible";
 static bool dtc_cleared = false;
 static bool status_checked = false;
+static bool status_has_been_checked = false;
+static bool real_status_loaded = false;
 
 extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
@@ -26,10 +28,13 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     char resp_str[600];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
     
-    // Fetch the latest status right before generating the response
-    int current_status = get_global_status();
-    char status_str[100];
-    snprintf(status_str, sizeof(status_str), "<p>Estado actual: %d</p>", current_status);
+    char status_str[100] = "";
+    if (status_has_been_checked && real_status_loaded) {
+        int current_status = get_global_status();
+        snprintf(status_str, sizeof(status_str), "<p>Estado actual: %d</p>", current_status);
+    } else if (status_has_been_checked && !real_status_loaded) {
+        snprintf(status_str, sizeof(status_str), "<p>Cargando estado...</p>");
+    }
 
     const char* status_message = status_checked ? 
         "<p>Estado verificado. Revise la consola para ver los detalles de las tramas CAN enviadas.</p>" : "";
@@ -86,6 +91,8 @@ static esp_err_t check_status_handler(httpd_req_t *req)
     xTaskCreate(check_status_task, "check_status_task", 2048, NULL, 5, NULL);
     
     status_checked = true;
+    status_has_been_checked = true;
+    real_status_loaded = false;  // Reset this flag when starting a new check
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -208,4 +215,10 @@ void update_vin_data(const char* vin_vehiculo, const char* vin_columna)
     vin_columna_global[sizeof(vin_columna_global) - 1] = '\0';
 
     ESP_LOGI(TAG, "VIN data updated. Vehiculo: %s, Columna: %s", vin_vehiculo_global, vin_columna_global);
+}
+
+void update_real_status(int status)
+{
+    real_status_loaded = true;
+    // Aquí puedes añadir cualquier otra lógica necesaria para actualizar el estado
 }

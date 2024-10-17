@@ -6,6 +6,7 @@
 #include "driver/twai.h"
 #include <string.h>
 #include <ctype.h>
+#include "wifi_server.h"  // Asegúrate de que este archivo exista y contenga la declaración de update_real_status
 
 static const char *CAN_TAG = "CAN_COMMUNICATION";
 
@@ -15,6 +16,10 @@ static int received_762_frames = 0;
 
 // Global variable to store the status
 static int global_status = 3;
+
+static bool status_updated = false;
+
+extern void update_real_status(int status);
 
 void send_can_frame(uint32_t id, uint8_t *data, uint8_t dlc) {
     if (xEventGroupGetBits(vin_event_group) & STOP_TASKS_BIT) {
@@ -113,6 +118,7 @@ void check_status_task(void *pvParameters) {
         {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
     };
 
+    status_updated = false;
     check_status_mode = true;
     received_762_frames = 0;
     global_status = 3;  // Reset status to 3 at the start of check
@@ -147,7 +153,7 @@ void receive_task(void *pvParameters) {
         twai_message_t message;
         esp_err_t result = twai_receive(&message, pdMS_TO_TICKS(100));
         if (result == ESP_OK) {
-            if (message.identifier == 0x762 && check_status_mode) {
+            if (message.identifier == 0x762 && check_status_mode && !status_updated) {
                 if (message.data[0] == 0x23 && message.data[1] == 0x00) {
                     ESP_LOGI(CAN_TAG, "Trama 762 filtrada recibida: [%02X %02X %02X %02X %02X %02X %02X %02X]",
                              message.data[0], message.data[1], message.data[2], message.data[3],
@@ -162,6 +168,10 @@ void receive_task(void *pvParameters) {
                         global_status = 3;
                     }
                     ESP_LOGI(CAN_TAG, "Estado actualizado: %d", global_status);
+                    
+                    // Call update_real_status with the new status
+                    update_real_status(global_status);
+                    status_updated = true;
                 }
             }
             else if (message.identifier == TARGET_ID_1 || message.identifier == TARGET_ID_2) {
@@ -206,7 +216,7 @@ void receive_task(void *pvParameters) {
                     target_VIN[VIN_LENGTH] = '\0'; // Añadir el carácter nulo al final
 
                     if (validate_vin(target_VIN, is_vehicle)) {
-                        if (is_vehicle) {
+                        if  (is_vehicle) {
                             ESP_LOGI(CAN_TAG, "VIN del vehiculo valido: %s", target_VIN);
                         } else {
                             ESP_LOGI(CAN_TAG, "VIN de la columna valido: %s", target_VIN);
@@ -214,7 +224,7 @@ void receive_task(void *pvParameters) {
                         xEventGroupSetBits(vin_event_group, vin_bit);
                     } else {
                         if (is_vehicle) {
-                            ESP_LOGW(CAN_TAG,    "VIN del vehiculo no valido: %s", target_VIN);
+                            ESP_LOGW(CAN_TAG, "VIN del vehiculo no valido: %s", target_VIN);
                         } else {
                             ESP_LOGW(CAN_TAG, "VIN de la columna no valido: %s", target_VIN);
                         }
