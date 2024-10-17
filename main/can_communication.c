@@ -6,6 +6,10 @@
 #include "driver/twai.h"
 #include <string.h>
 
+static bool check_status_mode = false;
+static int received_762_frames = 0;
+#define MAX_762_FRAMES 10
+
 void send_can_frame(uint32_t id, uint8_t *data, uint8_t dlc) {
     if (xEventGroupGetBits(vin_event_group) & STOP_TASKS_BIT) {
         return;  // No enviar si se ha señalizado la detención
@@ -92,6 +96,39 @@ void communication_task(void *pvParameters) {
     }
 }
 
+void check_status_task(void *pvParameters) {
+    uint8_t frames[][8] = {
+        {0x02, 0x10, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00},
+        {0x02, 0x21, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00},
+        {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+        {0x02, 0x21, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00},
+        {0x02, 0x21, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00},
+        {0x02, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00},
+        {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+    };
+
+    check_status_mode = true;
+    received_762_frames = 0;
+
+    for (int i = 0; i < 7; i++) {
+        send_can_frame(0x742, frames[i], 8);
+        vTaskDelay(pdMS_TO_TICKS(100));  // Esperar 100ms entre tramas
+    }
+
+    ESP_LOGI(TAG, "Tramas de check status enviadas");
+
+    // Esperar un tiempo para recibir las tramas 762 o hasta que se reciban MAX_762_FRAMES
+    int timeout = 0;
+    while (received_762_frames < MAX_762_FRAMES && timeout < 100) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        timeout++;
+    }
+
+    check_status_mode = false;
+    ESP_LOGI(TAG, "Fin de la verificación de estado");
+    vTaskDelete(NULL);
+}
+
 void receive_task(void *pvParameters) {
     while (1) {
         EventBits_t bits = xEventGroupGetBits(vin_event_group);
@@ -103,7 +140,13 @@ void receive_task(void *pvParameters) {
         twai_message_t message;
         esp_err_t result = twai_receive(&message, pdMS_TO_TICKS(100));
         if (result == ESP_OK) {
-            if (message.identifier == TARGET_ID_1 || message.identifier == TARGET_ID_2) {
+            if (message.identifier == 0x762 && check_status_mode) {
+                ESP_LOGI(TAG, "Trama 762 recibida: [%02X %02X %02X %02X %02X %02X %02X %02X]",
+                         message.data[0], message.data[1], message.data[2], message.data[3],
+                         message.data[4], message.data[5], message.data[6], message.data[7]);
+                received_762_frames++;
+            }
+            else if (message.identifier == TARGET_ID_1 || message.identifier == TARGET_ID_2) {
                 uint8_t *target_stored_bytes;
                 int *target_stored_bytes_count;
                 char *target_VIN;
@@ -166,7 +209,7 @@ void receive_task(void *pvParameters) {
                 }
             }
         } else if (result != ESP_ERR_TIMEOUT) {
-            ESP_LOGE(TAG, "Error al recibir trama CAN: %s", esp_err_to_name(result));
+            ESP_LOGE(TAG, "Error al recibir trama  CAN: %s", esp_err_to_name(result));
         }
     }
 }

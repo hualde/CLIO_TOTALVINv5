@@ -15,14 +15,18 @@ static const char *TAG = "wifi_server";
 static char vin_vehiculo_global[18] = "No disponible";
 static char vin_columna_global[18] = "No disponible";
 static bool dtc_cleared = false;
+static bool status_checked = false;
 
 extern void clear_dtc_task(void *pvParameters);
+extern void check_status_task(void *pvParameters);
 
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[500];
+    char resp_str[600];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
-    dtc_cleared = false; // Reset the flag
+    const char* status_message = status_checked ? "<p>Estado verificado. Revise la consola para ver los detalles de las tramas CAN enviadas.</p>" : "";
+    dtc_cleared = false;
+    status_checked = false;
 
     snprintf(resp_str, sizeof(resp_str),
              "<html><body>"
@@ -32,9 +36,13 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "<form action='/clear_dtc' method='get'>"
              "<input type='submit' value='Borrar DTC'>"
              "</form>"
+             "<form action='/check_status' method='get'>"
+             "<input type='submit' value='Check Status'>"
+             "</form>"
+             "%s"
              "%s"
              "</body></html>",
-             vin_vehiculo_global, vin_columna_global, dtc_message);
+             vin_vehiculo_global, vin_columna_global, dtc_message, status_message);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
@@ -47,6 +55,20 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
     xTaskCreate(clear_dtc_task, "clear_dtc_task", 2048, NULL, 5, NULL);
     
     dtc_cleared = true;
+
+    // Redirect to the main page
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+static esp_err_t check_status_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Iniciando tarea de verificación de estado desde el servidor web");
+    xTaskCreate(check_status_task, "check_status_task", 2048, NULL, 5, NULL);
+    
+    status_checked = true;
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -69,6 +91,13 @@ static httpd_uri_t clear_dtc = {
     .user_ctx  = NULL
 };
 
+static httpd_uri_t check_status = {
+    .uri       = "/check_status",
+    .method    = HTTP_GET,
+    .handler   = check_status_handler,
+    .user_ctx  = NULL
+};
+
 static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
@@ -80,6 +109,7 @@ static httpd_handle_t start_webserver(void)
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &clear_dtc);
+        httpd_register_uri_handler(server, &check_status);
         return server;
     }
 
