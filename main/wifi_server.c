@@ -9,6 +9,7 @@
 #include "lwip/sys.h"
 #include "esp_mac.h"
 #include <string.h>
+#include "can_communication.h"
 
 static const char *TAG = "wifi_server";
 
@@ -24,7 +25,18 @@ static esp_err_t http_server_handler(httpd_req_t *req)
 {
     char resp_str[600];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
-    const char* status_message = status_checked ? "<p>Estado verificado. Revise la consola para ver los detalles de las tramas CAN enviadas.</p>" : "";
+    
+    int current_status = get_global_status();
+    char status_str[100];
+    snprintf(status_str, sizeof(status_str), "<p>Estado actual: %d</p>", current_status);
+
+    const char* status_message = status_checked ? 
+        "<p>Estado verificado. Revise la consola para ver los detalles de las tramas CAN enviadas.</p>" : "";
+
+    // Combine status messages
+    char combined_status[200];
+    snprintf(combined_status, sizeof(combined_status), "%s%s", status_str, status_message);
+
     dtc_cleared = false;
     status_checked = false;
 
@@ -42,7 +54,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "%s"
              "%s"
              "</body></html>",
-             vin_vehiculo_global, vin_columna_global, dtc_message, status_message);
+             vin_vehiculo_global, vin_columna_global, dtc_message, combined_status);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));

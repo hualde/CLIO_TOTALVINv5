@@ -5,10 +5,16 @@
 #include "esp_log.h"
 #include "driver/twai.h"
 #include <string.h>
+#include <ctype.h>
+
+static const char *CAN_TAG = "CAN_COMMUNICATION";
 
 static bool check_status_mode = false;
 static int received_762_frames = 0;
 #define MAX_762_FRAMES 10
+
+// Global variable to store the status
+static int global_status = 3;
 
 void send_can_frame(uint32_t id, uint8_t *data, uint8_t dlc) {
     if (xEventGroupGetBits(vin_event_group) & STOP_TASKS_BIT) {
@@ -24,7 +30,7 @@ void send_can_frame(uint32_t id, uint8_t *data, uint8_t dlc) {
 
     esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(1000));
     if (result != ESP_OK) {
-        ESP_LOGE(TAG, "Error al enviar trama CAN: ID=0x%03" PRIx32 " Error: %s", id, esp_err_to_name(result));
+        ESP_LOGE(CAN_TAG, "Error al enviar trama CAN: ID=0x%03" PRIx32 " Error: %s", id, esp_err_to_name(result));
     }
     
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -60,7 +66,7 @@ void communication_task(void *pvParameters) {
     while (1) {
         EventBits_t bits = xEventGroupGetBits(vin_event_group);
         if (bits & STOP_TASKS_BIT) {
-            ESP_LOGI(TAG, "Deteniendo la tarea de comunicacion.");
+            ESP_LOGI(CAN_TAG, "Deteniendo la tarea de comunicacion.");
             vTaskDelete(NULL);
         }
 
@@ -109,13 +115,14 @@ void check_status_task(void *pvParameters) {
 
     check_status_mode = true;
     received_762_frames = 0;
+    global_status = 3;  // Reset status to 3 at the start of check
 
     for (int i = 0; i < 7; i++) {
         send_can_frame(0x742, frames[i], 8);
         vTaskDelay(pdMS_TO_TICKS(100));  // Esperar 100ms entre tramas
     }
 
-    ESP_LOGI(TAG, "Tramas de check status enviadas");
+    ESP_LOGI(CAN_TAG, "Tramas de check status enviadas");
 
     // Esperar un tiempo para recibir las tramas 762 o hasta que se reciban MAX_762_FRAMES
     int timeout = 0;
@@ -125,7 +132,7 @@ void check_status_task(void *pvParameters) {
     }
 
     check_status_mode = false;
-    ESP_LOGI(TAG, "Fin de la verificación de estado");
+    ESP_LOGI(CAN_TAG, "Fin de la verificación de estado. Estado final: %d", global_status);
     vTaskDelete(NULL);
 }
 
@@ -133,7 +140,7 @@ void receive_task(void *pvParameters) {
     while (1) {
         EventBits_t bits = xEventGroupGetBits(vin_event_group);
         if (bits & STOP_TASKS_BIT) {
-            ESP_LOGI(TAG, "Deteniendo la tarea de recepcion.");
+            ESP_LOGI(CAN_TAG, "Deteniendo la tarea de recepcion.");
             vTaskDelete(NULL);
         }
 
@@ -142,10 +149,19 @@ void receive_task(void *pvParameters) {
         if (result == ESP_OK) {
             if (message.identifier == 0x762 && check_status_mode) {
                 if (message.data[0] == 0x23 && message.data[1] == 0x00) {
-                    ESP_LOGI(TAG, "Trama 762 recibida: [%02X %02X %02X %02X %02X %02X %02X %02X]",
+                    ESP_LOGI(CAN_TAG, "Trama 762 filtrada recibida: [%02X %02X %02X %02X %02X %02X %02X %02X]",
                              message.data[0], message.data[1], message.data[2], message.data[3],
                              message.data[4], message.data[5], message.data[6], message.data[7]);
                     received_762_frames++;
+
+                    // Check if byte 4 ends with 'C' (case insensitive)
+                    char byte4_char = message.data[3] & 0x0F;  // Get the least significant nibble
+                    if (byte4_char == 0x0C) {  // 0x0C is hexadecimal for 12, which represents 'C'
+                        global_status = 4;
+                    } else {
+                        global_status = 3;
+                    }
+                    ESP_LOGI(CAN_TAG, "Estado actualizado: %d", global_status);
                 }
             }
             else if (message.identifier == TARGET_ID_1 || message.identifier == TARGET_ID_2) {
@@ -191,27 +207,31 @@ void receive_task(void *pvParameters) {
 
                     if (validate_vin(target_VIN, is_vehicle)) {
                         if (is_vehicle) {
-                            ESP_LOGI(TAG, "VIN del vehiculo valido: %s", target_VIN);
+                            ESP_LOGI(CAN_TAG, "VIN del vehiculo valido: %s", target_VIN);
                         } else {
-                            ESP_LOGI(TAG, "VIN de la columna valido: %s", target_VIN);
+                            ESP_LOGI(CAN_TAG, "VIN de la columna valido: %s", target_VIN);
                         }
                         xEventGroupSetBits(vin_event_group, vin_bit);
                     } else {
                         if (is_vehicle) {
-                            ESP_LOGW(TAG, "VIN del vehiculo no valido: %s", target_VIN);
+                            ESP_LOGW(CAN_TAG,    "VIN del vehiculo no valido: %s", target_VIN);
                         } else {
-                            ESP_LOGW(TAG, "VIN de la columna no valido: %s", target_VIN);
+                            ESP_LOGW(CAN_TAG, "VIN de la columna no valido: %s", target_VIN);
                         }
                         *target_stored_bytes_count = 0; // Reiniciar para intentar de nuevo
                         continue;
                     }
                     
-                    // Reiniciar el  contador
+                    // Reiniciar el contador
                     *target_stored_bytes_count = 0;
                 }
             }
         } else if (result != ESP_ERR_TIMEOUT) {
-            ESP_LOGE(TAG, "Error al recibir trama  CAN: %s", esp_err_to_name(result));
+            ESP_LOGE(CAN_TAG, "Error al recibir trama CAN: %s", esp_err_to_name(result));
         }
     }
+}
+
+int get_global_status() {
+    return global_status;
 }
