@@ -35,6 +35,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     // Generate the HTML response with improved styling
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
+             "<meta charset='UTF-8'>"
              "<meta name='viewport' content='width=device-width, initial-scale=1'>"
              "<style>"
              "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
@@ -51,9 +52,9 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              ".action-message { margin-left: 10px; }"
              "</style>"
              "</head><body>"
-             "<h1>Información de VIN</h1>"
+             "<h1>Informaci&oacute;n de VIN</h1>"
              "<div class='vin-info'>"
-             "<p><strong>VIN del vehículo:</strong> %s</p>"
+             "<p><strong>VIN del veh&iacute;culo:</strong> %s</p>"
              "<p><strong>VIN de la columna:</strong> %s</p>"
              "</div>"
              "<div class='action-container'>"
@@ -69,7 +70,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "<span class='action-message'>%s</span>"
              "</div>"
              "<form action='/calibracion_angulo' method='get'>"
-             "<input type='submit' value='Calibración de Ángulo' class='button'>"
+             "<input type='submit' value='Calibraci&oacute;n de &Aacute;ngulo' class='button'>"
              "</form>"
              "</body></html>",
              vin_vehiculo_global, vin_columna_global, dtc_message, status_message);
@@ -119,6 +120,7 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
     char resp_str[2000];
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
+             "<meta charset='UTF-8'>"
              "<meta name='viewport' content='width=device-width, initial-scale=1'>"
              "<style>"
              "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
@@ -128,19 +130,19 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
              ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
              "</style>"
              "</head><body>"
-             "<h1>Calibración de Ángulo</h1>"
+             "<h1>Calibraci&oacute;n de &Aacute;ngulo</h1>"
              "<div class='instructions'>"
-             "<h2>Instrucciones de calibración de ángulo:</h2>"
+             "<h2>Instrucciones de calibraci&oacute;n de &aacute;ngulo:</h2>"
              "<ol>"
              "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
              "<li>Gire el volante a la izquierda hasta el tope</li>"
              "<li>Gire el volante a la derecha hasta el tope</li>"
              "<li>Vuelva a centrar el volante/ruedas</li>"
-             "<li>Pulse el botón 'Enviar tramas de calibración'</li>"
+             "<li>Pulse el bot&oacute;n 'Enviar tramas de calibraci&oacute;n'</li>"
              "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
              "</ol>"
              "<form action='/send_calibration_frames' method='get'>"
-             "<input type='submit' value='Enviar tramas de calibración' class='button'>"
+             "<input type='submit' value='Enviar tramas de calibraci&oacute;n' class='button'>"
              "</form>"
              "</div>"
              "<br><a href='/' class='button'>Volver</a>"
@@ -277,6 +279,7 @@ void init_wifi_server(void)
       ESP_ERROR_CHECK(nvs_flash_erase());
       ret = nvs_flash_init();
     }
+    
     ESP_ERROR_CHECK(ret);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
