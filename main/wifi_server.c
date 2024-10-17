@@ -20,26 +20,29 @@ static char vin_columna_global[18] = "No disponible";
 static bool dtc_cleared = false;
 static bool status_has_been_checked = false;
 static bool real_status_loaded = false;
-static bool calibracion_executed = false;
+static bool calibracion_instructions_shown = false;
 
 extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
-extern void calibracion_angulo_task(void *pvParameters);
+extern void send_calibration_frames_task(void *pvParameters);
 
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[800];
+    char resp_str[1200];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
-    const char* calibracion_message = calibracion_executed ? 
-    "<p>Calibración de ángulo en progreso. Siga estas instrucciones:</p>"
-    "<ol>"
-    "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
-    "<li>Gire el volante a la izquierda hasta el tope</li>"
-    "<li>Gire el volante a la derecha hasta el tope</li>"
-    "<li>Vuelva a centrar el volante/ruedas y espere a que finalice la cuenta atrás</li>"
-    "<li>Una vez finalizada este proceso, apague el coche y vuelva a encenderlo</li>"
-    "</ol>"
-    "<p>Tiempo restante: <span id='countdown'></span></p>" : "";
+    const char* calibracion_message = calibracion_instructions_shown ? 
+        "<p>Instrucciones de calibración de ángulo:</p>"
+        "<ol>"
+        "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
+        "<li>Gire el volante a la izquierda hasta el tope</li>"
+        "<li>Gire el volante a la derecha hasta el tope</li>"
+        "<li>Vuelva a centrar el volante/ruedas</li>"
+        "<li>Pulse el botón 'Enviar tramas de calibración'</li>"
+        "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
+        "</ol>"
+        "<form action='/send_calibration_frames' method='get'>"
+        "<input type='submit' value='Enviar tramas de calibración'>"
+        "</form>" : "";
     
     char status_str[100] = "";
     if (status_has_been_checked && real_status_loaded) {
@@ -53,7 +56,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     strncpy(combined_status, status_str, sizeof(combined_status));
     combined_status[sizeof(combined_status) - 1] = '\0';
 
-    // Generate the HTML response with auto-refresh
+    // Generate the HTML response
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
              "<meta http-equiv='refresh' content='5'>"
@@ -112,10 +115,20 @@ static esp_err_t check_status_handler(httpd_req_t *req)
 
 static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "Iniciando calibración de ángulo");
-    xTaskCreate(calibracion_angulo_task, "calibracion_angulo_task", 2048, NULL, 5, NULL);
-    
-    calibracion_executed = true;
+    ESP_LOGI(TAG, "Mostrando instrucciones de calibración de ángulo");
+    calibracion_instructions_shown = true;
+
+    // Redirect to the main page
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+static esp_err_t send_calibration_frames_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Iniciando envío de tramas de calibración");
+    xTaskCreate(send_calibration_frames_task, "send_calibration_frames_task", 2048, NULL, 5, NULL);
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -152,6 +165,13 @@ static httpd_uri_t calibracion_angulo_uri = {
     .user_ctx  = NULL
 };
 
+static httpd_uri_t send_calibration_frames_uri = {
+    .uri       = "/send_calibration_frames",
+    .method    = HTTP_GET,
+    .handler   = send_calibration_frames_handler,
+    .user_ctx  = NULL
+};
+
 static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
@@ -165,6 +185,7 @@ static httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &clear_dtc);
         httpd_register_uri_handler(server, &check_status);
         httpd_register_uri_handler(server, &calibracion_angulo_uri);
+        httpd_register_uri_handler(server, &send_calibration_frames_uri);
         return server;
     }
 

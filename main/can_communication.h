@@ -8,6 +8,8 @@ void communication_task(void *pvParameters);
 void check_status_task(void *pvParameters);
 void receive_task(void *pvParameters);
 int get_global_status(void);
+void send_calibration_frames_task(void *pvParameters);
+
 
 // New function declaration
 void calibracion_angulo_task(void *pvParameters);

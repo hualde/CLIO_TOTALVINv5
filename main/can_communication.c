@@ -270,3 +270,22 @@ void calibracion_angulo_task(void *pvParameters) {
     ESP_LOGI(CAN_TAG, "Calibración de ángulo completada");
     vTaskDelete(NULL);
 }
+
+void send_calibration_frames_task(void *pvParameters) {
+    ESP_LOGI(CAN_TAG, "Iniciando envío de tramas de calibración");
+
+    // Define the frames
+    uint8_t frame1[] = {0x03, 0x14, 0xFF, 0x00, 0xB6, 0x01, 0xFF, 0xFF};
+    uint8_t frame2[] = {0x03, 0x31, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t frame3[] = {0x03, 0x31, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00};
+
+    // Send the frames
+    send_can_frame(0x742, frame1, 8);
+    vTaskDelay(pdMS_TO_TICKS(100));  // 100ms delay between frames
+    send_can_frame(0x742, frame2, 8);
+    vTaskDelay(pdMS_TO_TICKS(100));  // 100ms delay between frames
+    send_can_frame(0x742, frame3, 8);
+
+    ESP_LOGI(CAN_TAG, "Envío de tramas de calibración completado");
+    vTaskDelete(NULL);
+}
