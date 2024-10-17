@@ -12,7 +12,6 @@
 #include "can_communication.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/timers.h"
 
 static const char *TAG = "wifi_server";
 
@@ -22,22 +21,15 @@ static bool dtc_cleared = false;
 static bool status_has_been_checked = false;
 static bool real_status_loaded = false;
 static bool calibracion_executed = false;
-static int countdown_value = 5;
 
 extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
 
-// New function declarations
-static void calibracion_angulo(void);
-static void countdown_timer_callback(TimerHandle_t xTimer);
-static void send_calibration_frames(void);
-
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[1000];
+    char resp_str[800];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
-    const char* calibracion_message = calibracion_executed ? 
-        "<p>Calibración de ángulo en progreso. Tiempo restante: <span id='countdown'></span></p>" : "";
+    const char* calibracion_message = calibracion_executed ? "<p>Calibración de ángulo en progreso</p>" : "";
     
     char status_str[100] = "";
     if (status_has_been_checked && real_status_loaded) {
@@ -51,23 +43,10 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     strncpy(combined_status, status_str, sizeof(combined_status));
     combined_status[sizeof(combined_status) - 1] = '\0';
 
-    // Generate the HTML response with auto-refresh and countdown script
+    // Generate the HTML response with auto-refresh
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
              "<meta http-equiv='refresh' content='5'>"
-             "<script>"
-             "var countdownValue = %d;"
-             "function updateCountdown() {"
-             "  if (countdownValue > 0) {"
-             "    document.getElementById('countdown').innerText = countdownValue;"
-             "    countdownValue--;"
-             "    setTimeout(updateCountdown, 1000);"
-             "  } else {"
-             "    document.getElementById('countdown').innerText = 'Completado';"
-             "  }"
-             "}"
-             "updateCountdown();"
-             "</script>"
              "</head><body>"
              "<h1>Informacion de VIN</h1>"
              "<p>VIN del vehiculo: %s</p>"
@@ -85,7 +64,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "%s"
              "%s"
              "</body></html>",
-             countdown_value, vin_vehiculo_global, vin_columna_global, dtc_message, calibracion_message, combined_status);
+             vin_vehiculo_global, vin_columna_global, dtc_message, calibracion_message, combined_status);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
@@ -124,10 +103,9 @@ static esp_err_t check_status_handler(httpd_req_t *req)
 static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Iniciando calibración de ángulo");
-    calibracion_angulo();
+    xTaskCreate(calibracion_angulo_task, "calibracion_angulo_task", 2048, NULL, 5, NULL);
     
     calibracion_executed = true;
-    countdown_value = 5;  // Reset countdown
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -182,48 +160,6 @@ static httpd_handle_t start_webserver(void)
 
     ESP_LOGI(TAG, "Error starting server!");
     return NULL;
-}
-
-static void calibracion_angulo(void)
-{
-    ESP_LOGI(TAG, "Iniciando calibración de ángulo");
-    
-    // Create and start a timer for the countdown
-    TimerHandle_t countdown_timer = xTimerCreate("CountdownTimer", pdMS_TO_TICKS(1000), pdTRUE, NULL, countdown_timer_callback);
-    if (countdown_timer != NULL) {
-        xTimerStart(countdown_timer, 0);
-    } else {
-        ESP_LOGE(TAG, "Failed to create countdown timer");
-    }
-}
-
-static void countdown_timer_callback(TimerHandle_t xTimer)
-{
-    if (countdown_value > 0) {
-        ESP_LOGI(TAG, "Countdown: %d", countdown_value);
-        countdown_value--;
-    } else {
-        ESP_LOGI(TAG, "Countdown finished. Sending CAN frames.");
-        xTimerStop(xTimer, 0);
-        xTimerDelete(xTimer, 0);
-        send_calibration_frames();
-        calibracion_executed = false;  // Reset the flag after sending frames
-    }
-}
-
-static void send_calibration_frames(void)
-{
-    uint8_t frame1[] = {0x03, 0x14, 0xFF, 0x00, 0xB6, 0x01, 0xFF, 0xFF};
-    uint8_t frame2[] = {0x03, 0x31, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t frame3[] = {0x03, 0x31, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00};
-
-    send_can_frame(0x742, frame1, 8);
-    vTaskDelay(pdMS_TO_TICKS(100));  // 100ms delay between frames
-    send_can_frame(0x742, frame2, 8);
-    vTaskDelay(pdMS_TO_TICKS(100));  // 100ms delay between frames
-    send_can_frame(0x742, frame3, 8);
-
-    ESP_LOGI(TAG, "Calibration frames sent");
 }
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
@@ -305,4 +241,5 @@ void update_vin_data(const char* vin_vehiculo, const char* vin_columna)
 void update_real_status(int status)
 {
     real_status_loaded = true;
+    // Aquí puedes añadir cualquier otra lógica necesaria para actualizar el estado
 }

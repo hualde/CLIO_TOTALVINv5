@@ -9,4 +9,7 @@ void check_status_task(void *pvParameters);
 void receive_task(void *pvParameters);
 int get_global_status(void);
 
+// New function declaration
+void calibracion_angulo_task(void *pvParameters);
+
 #endif // CAN_COMMUNICATION_H

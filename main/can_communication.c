@@ -6,7 +6,10 @@
 #include "driver/twai.h"
 #include <string.h>
 #include <ctype.h>
-#include "wifi_server.h"  // Asegúrate de que este archivo exista y contenga la declaración de update_real_status
+#include "wifi_server.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 
 static const char *CAN_TAG = "CAN_COMMUNICATION";
 
@@ -215,8 +218,8 @@ void receive_task(void *pvParameters) {
                     }
                     target_VIN[VIN_LENGTH] = '\0'; // Añadir el carácter nulo al final
 
-                    if (validate_vin(target_VIN, is_vehicle)) {
-                        if  (is_vehicle) {
+                    if (validate_vin(target_VIN,   is_vehicle)) {
+                        if (is_vehicle) {
                             ESP_LOGI(CAN_TAG, "VIN del vehiculo valido: %s", target_VIN);
                         } else {
                             ESP_LOGI(CAN_TAG, "VIN de la columna valido: %s", target_VIN);
@@ -244,4 +247,26 @@ void receive_task(void *pvParameters) {
 
 int get_global_status() {
     return global_status;
+}
+
+void calibracion_angulo_task(void *pvParameters) {
+    ESP_LOGI(CAN_TAG, "Iniciando calibración de ángulo");
+
+    // Define the frames
+    uint8_t frame1[] = {0x03, 0x14, 0xFF, 0x00, 0xB6, 0x01, 0xFF, 0xFF};
+    uint8_t frame2[] = {0x03, 0x31, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t frame3[] = {0x03, 0x31, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00};
+
+    // Wait for 5 seconds
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    // Send the frames
+    send_can_frame(0x742, frame1, 8);
+    vTaskDelay(pdMS_TO_TICKS(100));  // 100ms delay between frames
+    send_can_frame(0x742, frame2, 8);
+    vTaskDelay(pdMS_TO_TICKS(100));  // 100ms delay between frames
+    send_can_frame(0x742, frame3, 8);
+
+    ESP_LOGI(CAN_TAG, "Calibración de ángulo completada");
+    vTaskDelete(NULL);
 }
