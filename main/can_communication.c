@@ -141,10 +141,12 @@ void receive_task(void *pvParameters) {
         esp_err_t result = twai_receive(&message, pdMS_TO_TICKS(100));
         if (result == ESP_OK) {
             if (message.identifier == 0x762 && check_status_mode) {
-                ESP_LOGI(TAG, "Trama 762 recibida: [%02X %02X %02X %02X %02X %02X %02X %02X]",
-                         message.data[0], message.data[1], message.data[2], message.data[3],
-                         message.data[4], message.data[5], message.data[6], message.data[7]);
-                received_762_frames++;
+                if (message.data[0] == 0x23 && message.data[1] == 0x00) {
+                    ESP_LOGI(TAG, "Trama 762 recibida: [%02X %02X %02X %02X %02X %02X %02X %02X]",
+                             message.data[0], message.data[1], message.data[2], message.data[3],
+                             message.data[4], message.data[5], message.data[6], message.data[7]);
+                    received_762_frames++;
+                }
             }
             else if (message.identifier == TARGET_ID_1 || message.identifier == TARGET_ID_2) {
                 uint8_t *target_stored_bytes;
@@ -204,7 +206,7 @@ void receive_task(void *pvParameters) {
                         continue;
                     }
                     
-                    // Reiniciar el contador
+                    // Reiniciar el  contador
                     *target_stored_bytes_count = 0;
                 }
             }
