@@ -16,7 +16,6 @@ static const char *TAG = "wifi_server";
 static char vin_vehiculo_global[18] = "No disponible";
 static char vin_columna_global[18] = "No disponible";
 static bool dtc_cleared = false;
-static bool status_checked = false;
 static bool status_has_been_checked = false;
 static bool real_status_loaded = false;
 
@@ -36,16 +35,12 @@ static esp_err_t http_server_handler(httpd_req_t *req)
         snprintf(status_str, sizeof(status_str), "<p>Cargando estado...</p>");
     }
 
-    const char* status_message = status_checked ? 
-        "<p>Estado verificado. Revise la consola para ver los detalles de las tramas CAN enviadas.</p>" : "";
-
-    // Combine status messages
     char combined_status[200];
-    snprintf(combined_status, sizeof(combined_status), "%s%s", status_str, status_message);
+    strncpy(combined_status, status_str, sizeof(combined_status));
+    combined_status[sizeof(combined_status) - 1] = '\0';
 
     // Reset flags after generating the response
     dtc_cleared = false;
-    status_checked = false;
 
     // Generate the HTML response with auto-refresh
     snprintf(resp_str, sizeof(resp_str),
@@ -90,7 +85,6 @@ static esp_err_t check_status_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Iniciando tarea de verificación de estado desde el servidor web");
     xTaskCreate(check_status_task, "check_status_task", 2048, NULL, 5, NULL);
     
-    status_checked = true;
     status_has_been_checked = true;
     real_status_loaded = false;  // Reset this flag when starting a new check
 
