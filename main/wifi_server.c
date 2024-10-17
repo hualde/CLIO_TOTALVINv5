@@ -26,6 +26,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     char resp_str[600];
     const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
     
+    // Fetch the latest status right before generating the response
     int current_status = get_global_status();
     char status_str[100];
     snprintf(status_str, sizeof(status_str), "<p>Estado actual: %d</p>", current_status);
@@ -37,11 +38,15 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     char combined_status[200];
     snprintf(combined_status, sizeof(combined_status), "%s%s", status_str, status_message);
 
+    // Reset flags after generating the response
     dtc_cleared = false;
     status_checked = false;
 
+    // Generate the HTML response with auto-refresh
     snprintf(resp_str, sizeof(resp_str),
-             "<html><body>"
+             "<html><head>"
+             "<meta http-equiv='refresh' content='5'>"  // Refresh every 5 seconds
+             "</head><body>"
              "<h1>Informacion de VIN</h1>"
              "<p>VIN del vehiculo: %s</p>"
              "<p>VIN de la columna: %s</p>"
