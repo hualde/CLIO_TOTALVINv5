@@ -28,10 +28,11 @@ extern void send_calibration_frames_task(void *pvParameters);
 
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[1200];
-    const char* dtc_message = dtc_cleared ? "<p>DTC borrado exitosamente</p>" : "";
+    char resp_str[2000];
+    const char* dtc_message = dtc_cleared ? "<p class='success-message'>DTC borrado exitosamente</p>" : "";
     const char* calibracion_message = calibracion_instructions_shown ? 
-        "<p>Instrucciones de calibración de ángulo:</p>"
+        "<div class='instructions'>"
+        "<h2>Instrucciones de calibración de ángulo:</h2>"
         "<ol>"
         "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
         "<li>Gire el volante a la izquierda hasta el tope</li>"
@@ -41,37 +42,52 @@ static esp_err_t http_server_handler(httpd_req_t *req)
         "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
         "</ol>"
         "<form action='/send_calibration_frames' method='get'>"
-        "<input type='submit' value='Enviar tramas de calibración'>"
-        "</form>" : "";
+        "<input type='submit' value='Enviar tramas de calibración' class='button'>"
+        "</form>"
+        "</div>" : "";
     
     char status_str[100] = "";
     if (status_has_been_checked && real_status_loaded) {
         int current_status = get_global_status();
-        snprintf(status_str, sizeof(status_str), "<p>Estado actual: %d</p>", current_status);
+        snprintf(status_str, sizeof(status_str), "<p class='status'>Estado actual: %d</p>", current_status);
     } else if (status_has_been_checked && !real_status_loaded) {
-        snprintf(status_str, sizeof(status_str), "<p>Cargando estado...</p>");
+        snprintf(status_str, sizeof(status_str), "<p class='status'>Cargando estado...</p>");
     }
 
     char combined_status[200];
     strncpy(combined_status, status_str, sizeof(combined_status));
     combined_status[sizeof(combined_status) - 1] = '\0';
 
-    // Generate the HTML response
+    // Generate the HTML response with improved styling
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
-             "<meta http-equiv='refresh' content='5'>"
+             "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+             "<style>"
+             "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
+             "h1 { color: #333; text-align: center; }"
+             ".vin-info { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }"
+             ".button { background-color: #E4007B; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }"
+             ".button:hover { background-color: #C4006B; }"
+             ".success-message { color: green; font-weight: bold; }"
+             ".status { font-weight: bold; }"
+             ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
+             ".instructions h2 { color: #E4007B; }"
+             ".instructions ol { padding-left: 20px; }"
+             "</style>"
              "</head><body>"
-             "<h1>Informacion de VIN</h1>"
-             "<p>VIN del vehiculo: %s</p>"
-             "<p>VIN de la columna: %s</p>"
+             "<h1>Información de VIN</h1>"
+             "<div class='vin-info'>"
+             "<p><strong>VIN del vehículo:</strong> %s</p>"
+             "<p><strong>VIN de la columna:</strong> %s</p>"
+             "</div>"
              "<form action='/clear_dtc' method='get'>"
-             "<input type='submit' value='Borrar DTC'>"
+             "<input type='submit' value='Borrar DTC' class='button'>"
              "</form>"
              "<form action='/check_status' method='get'>"
-             "<input type='submit' value='Check Status'>"
+             "<input type='submit' value='Check Status' class='button'>"
              "</form>"
              "<form action='/calibracion_angulo' method='get'>"
-             "<input type='submit' value='Calibración de Ángulo'>"
+             "<input type='submit' value='Calibración de Ángulo' class='button'>"
              "</form>"
              "%s"
              "%s"
