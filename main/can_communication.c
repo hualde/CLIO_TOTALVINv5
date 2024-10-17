@@ -142,6 +142,7 @@ void check_status_task(void *pvParameters) {
 
     check_status_mode = false;
     ESP_LOGI(CAN_TAG, "Fin de la verificación de estado. Estado final: %d", global_status);
+    update_real_status(global_status);
     vTaskDelete(NULL);
 }
 

@@ -22,7 +22,7 @@ static bool status_has_been_checked = false;
 static bool real_status_loaded = false;
 static bool calibracion_instructions_shown = false;
 static char dtc_message[100] = "";
-static char status_message[100] = "";
+static char status_message[100] = "Estado no verificado";
 
 extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
@@ -32,11 +32,12 @@ static esp_err_t http_server_handler(httpd_req_t *req)
 {
     char resp_str[2000];
 
-    // Generate the HTML response with improved styling
+    // Generate the HTML response with improved styling and auto-refresh
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
              "<meta charset='UTF-8'>"
              "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+             "<meta http-equiv='refresh' content='5'>"  // Auto-refresh every 5 seconds
              "<style>"
              "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
              "h1 { color: #333; text-align: center; }"
@@ -278,6 +279,7 @@ void init_wifi_server(void)
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());
       ret = nvs_flash_init();
+    
     }
     
     ESP_ERROR_CHECK(ret);
@@ -302,4 +304,5 @@ void update_real_status(int status)
 {
     real_status_loaded = true;
     snprintf(status_message, sizeof(status_message), "Estado actual: %d", status);
+    ESP_LOGI(TAG, "Status updated: %s", status_message);
 }

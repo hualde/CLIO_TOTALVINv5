@@ -8,5 +8,6 @@
 
 void init_wifi_server(void);
 void update_vin_data(const char* vin_vehiculo, const char* vin_columna);
+void update_real_status(int status);
 
 #endif // WIFI_SERVER_H
