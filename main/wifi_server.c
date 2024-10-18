@@ -30,14 +30,14 @@ extern void send_calibration_frames_task(void *pvParameters);
 
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[2000];
+    char resp_str[2500];  // Increased size to accommodate new content
 
-    // Generate the HTML response with improved styling and auto-refresh
+    // Generate the HTML response with improved styling, auto-refresh, and language selector
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
              "<meta charset='UTF-8'>"
              "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-             "<meta http-equiv='refresh' content='5'>"  // Auto-refresh every 5 seconds
+             "<meta http-equiv='refresh' content='5'>"
              "<style>"
              "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
              "h1 { color: #333; text-align: center; }"
@@ -54,8 +54,17 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              ".status-box { padding: 5px 10px; border-radius: 5px; font-weight: bold; }"
              ".status-4 { background-color: #4CAF50; color: white; }"
              ".status-3 { background-color: #FFEB3B; color: black; }"
+             ".language-selector { margin-bottom: 20px; text-align: right; }"
+             "select { padding: 5px; font-size: 16px; border-radius: 5px; }"
              "</style>"
              "</head><body>"
+             "<div class='language-selector'>"
+             "<select id='language' onchange='changeLanguage()'>"
+             "<option value='es'>Español</option>"
+             "<option value='en'>English</option>"
+             "<option value='fr'>Français</option>"
+             "</select>"
+             "</div>"
              "<h1>Lizarte Clio Configuración</h1>"
              "<div class='vin-info'>"
              "<p><strong>VIN del vehículo:</strong> %s</p>"
@@ -77,6 +86,13 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "<input type='submit' value='Comprobar calibración de ángulo' class='button'>"
              "</form>"
              "</div>"
+             "<script>"
+             "function changeLanguage() {"
+             "  var lang = document.getElementById('language').value;"
+             "  console.log('Language changed to: ' + lang);"
+             "  // Here you would typically reload the page or update content"
+             "}"
+             "</script>"
              "</body></html>",
              vin_vehiculo_global, vin_columna_global, dtc_message);
 
@@ -84,6 +100,7 @@ static esp_err_t http_server_handler(httpd_req_t *req)
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
 }
+
 
 static esp_err_t clear_dtc_handler(httpd_req_t *req)
 {
@@ -284,6 +301,7 @@ static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.stack_size = 8192;
     config.lru_purge_enable = true;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
