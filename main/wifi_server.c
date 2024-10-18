@@ -56,25 +56,25 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              ".status-3 { background-color: #FFEB3B; color: black; }"
              "</style>"
              "</head><body>"
-             "<h1>Informaci&oacute;n de VIN</h1>"
+             "<h1>Lizarte Clio Configuración</h1>"
              "<div class='vin-info'>"
-             "<p><strong>VIN del veh&iacute;culo:</strong> %s</p>"
+             "<p><strong>VIN del vehículo:</strong> %s</p>"
              "<p><strong>VIN de la columna:</strong> %s</p>"
              "</div>"
              "<div class='action-container'>"
              "<form action='/calibracion_angulo' method='get'>"
-             "<input type='submit' value='Calibraci&oacute;n de &Aacute;ngulo' class='button'>"
+             "<input type='submit' value='Calibración del ángulo' class='button'>"
              "</form>"
              "</div>"
              "<div class='action-container'>"
              "<form action='/clear_dtc' method='get'>"
-             "<input type='submit' value='Borrar DTC' class='button'>"
+             "<input type='submit' value='Borrar Fallos' class='button'>"
              "</form>"
              "<span class='action-message'>%s</span>"
              "</div>"
              "<div class='action-container'>"
              "<form action='/check_status' method='get'>"
-             "<input type='submit' value='Check Status' class='button'>"
+             "<input type='submit' value='Comprobar calibración de ángulo' class='button'>"
              "</form>"
              "</div>"
              "</body></html>",
@@ -91,7 +91,7 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
     xTaskCreate(clear_dtc_task, "clear_dtc_task", 2048, NULL, 5, NULL);
     
     dtc_cleared = true;
-    snprintf(dtc_message, sizeof(dtc_message), "DTC borrado exitosamente");
+    snprintf(dtc_message, sizeof(dtc_message), "Los fallos se han borrado");
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -102,7 +102,7 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
 
 static esp_err_t check_status_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "Mostrando página de verificación de estado");
+    ESP_LOGI(TAG, "Mostrando estado calibracion");
     status_has_been_checked = false;
     real_status_loaded = false;
 
@@ -122,12 +122,12 @@ static esp_err_t check_status_handler(httpd_req_t *req)
              ".status-3 { background-color: #FFEB3B; color: black; }"
              "</style>"
              "</head><body>"
-             "<h1>Verificaci&oacute;n de Estado</h1>"
+             "<h1>Verificación de calibración de ángulo</h1>"
              "<div class='status-container'>"
              "<h2>Estado actual:</h2>"
              "<p id='status-message'>No se ha realizado ninguna verificación</p>"
              "<form action='/perform_status_check' method='get'>"
-             "<input type='submit' value='Realizar verificaci&oacute;n' class='button'>"
+             "<input type='submit' value='Realizar verificacion' class='button'>"
              "</form>"
              "</div>"
              "<br><a href='/' class='button'>Volver</a>"
@@ -147,7 +147,7 @@ static esp_err_t check_status_handler(httpd_req_t *req)
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
-    return ESP_OK;
+   return ESP_OK;
 }
 
 static esp_err_t perform_status_check_handler(httpd_req_t *req)
@@ -194,19 +194,19 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
              ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
              "</style>"
              "</head><body>"
-             "<h1>Calibraci&oacute;n de &Aacute;ngulo</h1>"
+             "<h1>Calibración de ángulo</h1>"
              "<div class='instructions'>"
-             "<h2>Instrucciones de calibraci&oacute;n de &aacute;ngulo:</h2>"
+             "<h2>Instrucciones de calibración de ángulo:</h2>"
              "<ol>"
              "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
              "<li>Gire el volante a la izquierda hasta el tope</li>"
              "<li>Gire el volante a la derecha hasta el tope</li>"
              "<li>Vuelva a centrar el volante/ruedas</li>"
-             "<li>Pulse el bot&oacute;n 'Enviar tramas de calibraci&oacute;n'</li>"
+             "<li>Pulse el botón 'Calibrar'</li>"
              "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
              "</ol>"
              "<form action='/send_calibration_frames' method='get'>"
-             "<input type='submit' value='Enviar tramas de calibraci&oacute;n' class='button'>"
+             "<input type='submit' value='Calibrar' class='button'>"
              "</form>"
              "</div>"
              "<br><a href='/' class='button'>Volver</a>"
