@@ -62,6 +62,11 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "<p><strong>VIN de la columna:</strong> %s</p>"
              "</div>"
              "<div class='action-container'>"
+             "<form action='/calibracion_angulo' method='get'>"
+             "<input type='submit' value='Calibraci&oacute;n de &Aacute;ngulo' class='button'>"
+             "</form>"
+             "</div>"
+             "<div class='action-container'>"
              "<form action='/clear_dtc' method='get'>"
              "<input type='submit' value='Borrar DTC' class='button'>"
              "</form>"
@@ -73,9 +78,6 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "</form>"
              "<span class='action-message'>%s</span>"
              "</div>"
-             "<form action='/calibracion_angulo' method='get'>"
-             "<input type='submit' value='Calibraci&oacute;n de &Aacute;ngulo' class='button'>"
-             "</form>"
              "</body></html>",
              vin_vehiculo_global, vin_columna_global, dtc_message, status_message);
 
