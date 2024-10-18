@@ -76,10 +76,9 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "<form action='/check_status' method='get'>"
              "<input type='submit' value='Check Status' class='button'>"
              "</form>"
-             "<span class='action-message'>%s</span>"
              "</div>"
              "</body></html>",
-             vin_vehiculo_global, vin_columna_global, dtc_message, status_message);
+             vin_vehiculo_global, vin_columna_global, dtc_message);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
@@ -103,17 +102,74 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
 
 static esp_err_t check_status_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "Iniciando tarea de verificación de estado desde el servidor web");
-    xTaskCreate(check_status_task, "check_status_task", 2048, NULL, 5, NULL);
-    
+    ESP_LOGI(TAG, "Mostrando página de verificación de estado");
     status_has_been_checked = true;
     real_status_loaded = false;  // Reset this flag when starting a new check
-    snprintf(status_message, sizeof(status_message), "Verificando estado...");
 
-    // Redirect to the main page
+    char resp_str[2000];
+    snprintf(resp_str, sizeof(resp_str),
+             "<html><head>"
+             "<meta charset='UTF-8'>"
+             "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+             "<style>"
+             "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
+             "h1, h2 { color: #333; }"
+             ".button { background-color: #E4007B; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }"
+             ".button:hover { background-color: #C4006B; }"
+             ".status-container { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
+             ".status-box { padding: 5px 10px; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 10px; }"
+             ".status-4 { background-color: #4CAF50; color: white; }"
+             ".status-3 { background-color: #FFEB3B; color: black; }"
+             "</style>"
+             "</head><body>"
+             "<h1>Verificaci&oacute;n de Estado</h1>"
+             "<div class='status-container'>"
+             "<h2>Estado actual:</h2>"
+             "<p id='status-message'>Verificando estado...</p>"
+             "<form action='/perform_status_check' method='get'>"
+             "<input type='submit' value='Realizar verificaci&oacute;n' class='button'>"
+             "</form>"
+             "</div>"
+             "<br><a href='/' class='button'>Volver</a>"
+             "<script>"
+             "function checkStatus() {"
+             "  fetch('/get_status')"
+             "    .then(response => response.text())"
+             "    .then(data => {"
+             "      document.getElementById('status-message').innerHTML = data;"
+             "    });"
+             "}"
+             "setInterval(checkStatus, 5000);"  // Check status every 5 seconds
+             "</script>"
+             "</body></html>");
+
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_send(req, resp_str, strlen(resp_str));
+    return ESP_OK;
+}
+
+static esp_err_t perform_status_check_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Iniciando tarea de verificación de estado");
+    xTaskCreate(check_status_task, "check_status_task", 2048, NULL, 5, NULL);
+    
+    // Redirect back to the check_status page
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/check_status");
     httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+static esp_err_t get_status_handler(httpd_req_t *req)
+{
+    const char* status_class = (get_global_status() == 4) ? "status-4" : (get_global_status() == 3) ? "status-3" : "";
+    char status_str[100];
+    snprintf(status_str, sizeof(status_str), 
+             "<span class='status-box %s'>Status %d</span>", 
+             status_class, get_global_status());
+
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_send(req, status_str, strlen(status_str));
     return ESP_OK;
 }
 
@@ -192,6 +248,20 @@ static httpd_uri_t check_status = {
     .user_ctx  = NULL
 };
 
+static httpd_uri_t perform_status_check = {
+    .uri       = "/perform_status_check",
+    .method    = HTTP_GET,
+    .handler   = perform_status_check_handler,
+    .user_ctx  = NULL
+};
+
+static httpd_uri_t get_status = {
+    .uri       = "/get_status",
+    .method    = HTTP_GET,
+    .handler   = get_status_handler,
+    .user_ctx  = NULL
+};
+
 static httpd_uri_t calibracion_angulo_uri = {
     .uri       = "/calibracion_angulo",
     .method    = HTTP_GET,
@@ -200,7 +270,9 @@ static httpd_uri_t calibracion_angulo_uri = {
 };
 
 static httpd_uri_t send_calibration_frames_uri = {
-    .uri       = "/send_calibration_frames",
+    .uri       = 
+
+ "/send_calibration_frames",
     .method    = HTTP_GET,
     .handler   = send_calibration_frames_handler,
     .user_ctx  = NULL
@@ -218,6 +290,8 @@ static httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &root);
         httpd_register_uri_handler(server, &clear_dtc);
         httpd_register_uri_handler(server, &check_status);
+        httpd_register_uri_handler(server, &perform_status_check);
+        httpd_register_uri_handler(server, &get_status);
         httpd_register_uri_handler(server, &calibracion_angulo_uri);
         httpd_register_uri_handler(server, &send_calibration_frames_uri);
         return server;
@@ -275,7 +349,8 @@ void wifi_init_softap(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
-             EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS, EXAMPLE_ESP_WIFI_CHANNEL);
+             EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS, 
+             EXAMPLE_ESP_WIFI_CHANNEL);
 }
 
 void init_wifi_server(void)
@@ -284,7 +359,6 @@ void init_wifi_server(void)
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());
       ret = nvs_flash_init();
-    
     }
     
     ESP_ERROR_CHECK(ret);
