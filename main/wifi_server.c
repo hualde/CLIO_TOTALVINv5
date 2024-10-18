@@ -30,6 +30,8 @@ extern void send_calibration_frames_task(void *pvParameters);
 
 static char current_language[3] = "es";
 
+static bool calibration_completed = false;
+
 typedef struct {
     const char* title;
     const char* vehicle_vin;
@@ -49,6 +51,7 @@ typedef struct {
     const char* current_status;
     const char* no_verification;
     const char* perform_verification;
+    const char* faults_cleared;
     // Añade aquí más campos según sea necesario
 } language_strings_t;
 
@@ -71,6 +74,7 @@ static const language_strings_t languages[] = {
         .back_button = "Volver",
         .current_status = "Estado actual:",
         .no_verification = "No se ha realizado ninguna verificación",
+        .faults_cleared = "Los fallos se han borrado",
         .perform_verification = "Realizar verificación"
     },
     {
@@ -91,15 +95,16 @@ static const language_strings_t languages[] = {
         .back_button = "Back",
         .current_status = "Current status:",
         .no_verification = "No verification has been performed",
+        .faults_cleared = "Faults have been cleared",
         .perform_verification = "Perform verification"
     },
     {
         .title = "Configuration Lizarte Clio",
         .vehicle_vin = "VIN du véhicule:",
         .column_vin = "VIN de la colonne:",
-        .angle_calibration = "Calibration de l'angle",
+        .angle_calibration = "Calibration d angle",
         .clear_faults = "Effacer les défauts",
-        .check_angle_calibration = "Vérifier la calibration de l'angle",
+        .check_angle_calibration = "Vérifier la calibration d angle",
         .calibration_instructions_title = "Instructions de calibration de l'angle :",
         .calibration_step1 = "Avec le moteur en marche, centrez le volant/les roues",
         .calibration_step2 = "Tournez le volant à gauche jusqu'à la butée",
@@ -110,7 +115,8 @@ static const language_strings_t languages[] = {
         .calibrate_button = "Calibrer",
         .back_button = "Retour",
         .current_status = "Statut actuel :",
-        .no_verification = "Aucune vérification n'a été effectuée",
+        .no_verification = "Aucune vérification a été effectuée",
+        .faults_cleared = "Les défauts ont été effacés",
         .perform_verification = "Effectuer la vérification"
     }
 };
@@ -205,7 +211,11 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
     xTaskCreate(clear_dtc_task, "clear_dtc_task", 2048, NULL, 5, NULL);
     
     dtc_cleared = true;
-    snprintf(dtc_message, sizeof(dtc_message), "Los fallos se han borrado");
+    
+    // Use the translated message based on the current language
+    const language_strings_t* lang = get_language_strings();
+    strncpy(dtc_message, lang->faults_cleared, sizeof(dtc_message) - 1);
+    dtc_message[sizeof(dtc_message) - 1] = '\0';
 
     // Redirect to the main page
     httpd_resp_set_status(req, "302 Found");
@@ -316,6 +326,7 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
              ".button { background-color: #E4007B; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }"
              ".button:hover { background-color: #C4006B; }"
              ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
+             ".success-message { color: green; font-weight: bold; margin-left: 10px; }"
              "</style>"
              "</head><body>"
              "<h1>%s</h1>"
@@ -332,6 +343,7 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
              "<form action='/send_calibration_frames' method='get'>"
              "<input type='submit' value='%s' class='button'>"
              "</form>"
+             "%s" // This is where we'll add the success message
              "</div>"
              "<br><a href='/' class='button'>%s</a>"
              "</body></html>",
@@ -344,8 +356,12 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
              lang->calibration_step5,
              lang->calibration_step6,
              lang->calibrate_button,
+             calibration_completed ? "<span class='success-message'>Calibrado</span>" : "",
              lang->back_button
     );
+
+    // Reset the calibration_completed flag
+    calibration_completed = false;
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
@@ -353,14 +369,18 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
 }
 
 
+
 static esp_err_t send_calibration_frames_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Iniciando envío de tramas de calibración");
     xTaskCreate(send_calibration_frames_task, "send_calibration_frames_task", 2048, NULL, 5, NULL);
 
-    // Redirect to the main page
+    // Set the calibration_completed flag to true
+    calibration_completed = true;
+
+    // Redirect back to the calibration page
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_hdr(req, "Location", "/calibracion_angulo");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
