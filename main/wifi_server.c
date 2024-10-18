@@ -51,6 +51,9 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              ".instructions ol { padding-left: 20px; }"
              ".action-container { display: flex; align-items: center; margin-bottom: 10px; }"
              ".action-message { margin-left: 10px; }"
+             ".status-box { padding: 5px 10px; border-radius: 5px; font-weight: bold; }"
+             ".status-4 { background-color: #4CAF50; color: white; }"
+             ".status-3 { background-color: #FFEB3B; color: black; }"
              "</style>"
              "</head><body>"
              "<h1>Informaci&oacute;n de VIN</h1>"
@@ -303,6 +306,9 @@ void update_vin_data(const char* vin_vehiculo, const char* vin_columna)
 void update_real_status(int status)
 {
     real_status_loaded = true;
-    snprintf(status_message, sizeof(status_message), "Estado actual: %d", status);
-    ESP_LOGI(TAG, "Status updated: %s", status_message);
+    const char* status_class = (status == 4) ? "status-4" : (status == 3) ? "status-3" : "";
+    snprintf(status_message, sizeof(status_message), 
+             "<span class='status-box %s'>Status %d</span>", 
+             status_class, status);
+    ESP_LOGI(TAG, "Status updated: %d", status);
 }
