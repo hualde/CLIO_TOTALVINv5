@@ -37,6 +37,18 @@ typedef struct {
     const char* angle_calibration;
     const char* clear_faults;
     const char* check_angle_calibration;
+    const char* calibration_instructions_title;
+    const char* calibration_step1;
+    const char* calibration_step2;
+    const char* calibration_step3;
+    const char* calibration_step4;
+    const char* calibration_step5;
+    const char* calibration_step6;
+    const char* calibrate_button;
+    const char* back_button;
+    const char* current_status;
+    const char* no_verification;
+    const char* perform_verification;
     // Añade aquí más campos según sea necesario
 } language_strings_t;
 
@@ -47,7 +59,19 @@ static const language_strings_t languages[] = {
         .column_vin = "VIN de la columna:",
         .angle_calibration = "Calibración del ángulo",
         .clear_faults = "Borrar Fallos",
-        .check_angle_calibration = "Comprobar calibración de ángulo"
+        .check_angle_calibration = "Comprobar calibración de ángulo",
+        .calibration_instructions_title = "Instrucciones de calibración de ángulo:",
+        .calibration_step1 = "Con el motor encendido, ponga el volante/ruedas en el centro",
+        .calibration_step2 = "Gire el volante a la izquierda hasta el tope",
+        .calibration_step3 = "Gire el volante a la derecha hasta el tope",
+        .calibration_step4 = "Vuelva a centrar el volante/ruedas",
+        .calibration_step5 = "Pulse el botón 'Calibrar'",
+        .calibration_step6 = "Una vez finalizado este proceso, apague el coche y vuelva a encenderlo",
+        .calibrate_button = "Calibrar",
+        .back_button = "Volver",
+        .current_status = "Estado actual:",
+        .no_verification = "No se ha realizado ninguna verificación",
+        .perform_verification = "Realizar verificación"
     },
     {
         .title = "Lizarte Clio Configuration",
@@ -55,7 +79,19 @@ static const language_strings_t languages[] = {
         .column_vin = "Column VIN:",
         .angle_calibration = "Angle Calibration",
         .clear_faults = "Clear Faults",
-        .check_angle_calibration = "Check angle calibration"
+        .check_angle_calibration = "Check angle calibration",
+        .calibration_instructions_title = "Angle Calibration Instructions:",
+        .calibration_step1 = "With the engine running, center the steering wheel/wheels",
+        .calibration_step2 = "Turn the steering wheel to the left until it stops",
+        .calibration_step3 = "Turn the steering wheel to the right until it stops",
+        .calibration_step4 = "Return the steering wheel/wheels to the center",
+        .calibration_step5 = "Press the 'Calibrate' button",
+        .calibration_step6 = "Once this process is finished, turn off the car and turn it on again",
+        .calibrate_button = "Calibrate",
+        .back_button = "Back",
+        .current_status = "Current status:",
+        .no_verification = "No verification has been performed",
+        .perform_verification = "Perform verification"
     },
     {
         .title = "Configuration Lizarte Clio",
@@ -63,7 +99,19 @@ static const language_strings_t languages[] = {
         .column_vin = "VIN de la colonne:",
         .angle_calibration = "Calibration de l'angle",
         .clear_faults = "Effacer les défauts",
-        .check_angle_calibration = "Vérifier la calibration de l'angle"
+        .check_angle_calibration = "Vérifier la calibration de l'angle",
+        .calibration_instructions_title = "Instructions de calibration de l'angle :",
+        .calibration_step1 = "Avec le moteur en marche, centrez le volant/les roues",
+        .calibration_step2 = "Tournez le volant à gauche jusqu'à la butée",
+        .calibration_step3 = "Tournez le volant à droite jusqu'à la butée",
+        .calibration_step4 = "Recentrez le volant/les roues",
+        .calibration_step5 = "Appuyez sur le bouton 'Calibrer'",
+        .calibration_step6 = "Une fois ce processus terminé, éteignez la voiture et rallumez-la",
+        .calibrate_button = "Calibrer",
+        .back_button = "Retour",
+        .current_status = "Statut actuel :",
+        .no_verification = "Aucune vérification n'a été effectuée",
+        .perform_verification = "Effectuer la vérification"
     }
 };
 
@@ -172,6 +220,8 @@ static esp_err_t check_status_handler(httpd_req_t *req)
     status_has_been_checked = false;
     real_status_loaded = false;
 
+    const language_strings_t* lang = get_language_strings();
+
     char resp_str[2000];
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
@@ -188,32 +238,39 @@ static esp_err_t check_status_handler(httpd_req_t *req)
              ".status-3 { background-color: #FFEB3B; color: black; }"
              "</style>"
              "</head><body>"
-             "<h1>Verificación de calibración de ángulo</h1>"
+             "<h1>%s</h1>"
              "<div class='status-container'>"
-             "<h2>Estado actual:</h2>"
-             "<p id='status-message'>No se ha realizado ninguna verificación</p>"
+             "<h2>%s</h2>"
+             "<p id='status-message'>%s</p>"
              "<form action='/perform_status_check' method='get'>"
-             "<input type='submit' value='Realizar verificacion' class='button'>"
+             "<input type='submit' value='%s' class='button'>"
              "</form>"
              "</div>"
-             "<br><a href='/' class='button'>Volver</a>"
+             "<br><a href='/' class='button'>%s</a>"
              "<script>"
              "function checkStatus() {"
              "  fetch('/get_status')"
              "    .then(response => response.text())"
              "    .then(data => {"
-             "      if (data !== 'No se ha realizado ninguna verificación') {"
+             "      if (data !== '%s') {"
              "        document.getElementById('status-message').innerHTML = data;"
              "      }"
              "    });"
              "}"
              "setInterval(checkStatus, 5000);"
              "</script>"
-             "</body></html>");
+             "</body></html>",
+             lang->check_angle_calibration,
+             lang->current_status,
+             lang->no_verification,
+             lang->perform_verification,
+             lang->back_button,
+             lang->no_verification
+    );
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
-   return ESP_OK;
+    return ESP_OK;
 }
 
 static esp_err_t perform_status_check_handler(httpd_req_t *req)
@@ -246,7 +303,8 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Mostrando instrucciones de calibración de ángulo");
     calibracion_instructions_shown = true;
 
-    // Instead of redirecting, we'll render the page with instructions
+    const language_strings_t* lang = get_language_strings();
+
     char resp_str[2000];
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
@@ -260,28 +318,40 @@ static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
              ".instructions { background-color: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-top: 20px; }"
              "</style>"
              "</head><body>"
-             "<h1>Calibración de ángulo</h1>"
+             "<h1>%s</h1>"
              "<div class='instructions'>"
-             "<h2>Instrucciones de calibración de ángulo:</h2>"
+             "<h2>%s</h2>"
              "<ol>"
-             "<li>Con el motor encendido, ponga el volante/ruedas en el centro</li>"
-             "<li>Gire el volante a la izquierda hasta el tope</li>"
-             "<li>Gire el volante a la derecha hasta el tope</li>"
-             "<li>Vuelva a centrar el volante/ruedas</li>"
-             "<li>Pulse el botón 'Calibrar'</li>"
-             "<li>Una vez finalizado este proceso, apague el coche y vuelva a encenderlo</li>"
+             "<li>%s</li>"
+             "<li>%s</li>"
+             "<li>%s</li>"
+             "<li>%s</li>"
+             "<li>%s</li>"
+             "<li>%s</li>"
              "</ol>"
              "<form action='/send_calibration_frames' method='get'>"
-             "<input type='submit' value='Calibrar' class='button'>"
+             "<input type='submit' value='%s' class='button'>"
              "</form>"
              "</div>"
-             "<br><a href='/' class='button'>Volver</a>"
-             "</body></html>");
+             "<br><a href='/' class='button'>%s</a>"
+             "</body></html>",
+             lang->angle_calibration,
+             lang->calibration_instructions_title,
+             lang->calibration_step1,
+             lang->calibration_step2,
+             lang->calibration_step3,
+             lang->calibration_step4,
+             lang->calibration_step5,
+             lang->calibration_step6,
+             lang->calibrate_button,
+             lang->back_button
+    );
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
 }
+
 
 static esp_err_t send_calibration_frames_handler(httpd_req_t *req)
 {
