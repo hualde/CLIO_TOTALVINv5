@@ -103,8 +103,8 @@ static esp_err_t clear_dtc_handler(httpd_req_t *req)
 static esp_err_t check_status_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Mostrando página de verificación de estado");
-    status_has_been_checked = true;
-    real_status_loaded = false;  // Reset this flag when starting a new check
+    status_has_been_checked = false;
+    real_status_loaded = false;
 
     char resp_str[2000];
     snprintf(resp_str, sizeof(resp_str),
@@ -125,7 +125,7 @@ static esp_err_t check_status_handler(httpd_req_t *req)
              "<h1>Verificaci&oacute;n de Estado</h1>"
              "<div class='status-container'>"
              "<h2>Estado actual:</h2>"
-             "<p id='status-message'>Verificando estado...</p>"
+             "<p id='status-message'>No se ha realizado ninguna verificación</p>"
              "<form action='/perform_status_check' method='get'>"
              "<input type='submit' value='Realizar verificaci&oacute;n' class='button'>"
              "</form>"
@@ -136,10 +136,12 @@ static esp_err_t check_status_handler(httpd_req_t *req)
              "  fetch('/get_status')"
              "    .then(response => response.text())"
              "    .then(data => {"
-             "      document.getElementById('status-message').innerHTML = data;"
+             "      if (data !== 'No se ha realizado ninguna verificación') {"
+             "        document.getElementById('status-message').innerHTML = data;"
+             "      }"
              "    });"
              "}"
-             "setInterval(checkStatus, 5000);"  // Check status every 5 seconds
+             "setInterval(checkStatus, 5000);"
              "</script>"
              "</body></html>");
 
