@@ -28,16 +28,63 @@ extern void clear_dtc_task(void *pvParameters);
 extern void check_status_task(void *pvParameters);
 extern void send_calibration_frames_task(void *pvParameters);
 
+static char current_language[3] = "es";
+
+typedef struct {
+    const char* title;
+    const char* vehicle_vin;
+    const char* column_vin;
+    const char* angle_calibration;
+    const char* clear_faults;
+    const char* check_angle_calibration;
+    // Añade aquí más campos según sea necesario
+} language_strings_t;
+
+static const language_strings_t languages[] = {
+    {
+        .title = "Lizarte Clio Configuración",
+        .vehicle_vin = "VIN del vehículo:",
+        .column_vin = "VIN de la columna:",
+        .angle_calibration = "Calibración del ángulo",
+        .clear_faults = "Borrar Fallos",
+        .check_angle_calibration = "Comprobar calibración de ángulo"
+    },
+    {
+        .title = "Lizarte Clio Configuration",
+        .vehicle_vin = "Vehicle VIN:",
+        .column_vin = "Column VIN:",
+        .angle_calibration = "Angle Calibration",
+        .clear_faults = "Clear Faults",
+        .check_angle_calibration = "Check angle calibration"
+    },
+    {
+        .title = "Configuration Lizarte Clio",
+        .vehicle_vin = "VIN du véhicule:",
+        .column_vin = "VIN de la colonne:",
+        .angle_calibration = "Calibration de l'angle",
+        .clear_faults = "Effacer les défauts",
+        .check_angle_calibration = "Vérifier la calibration de l'angle"
+    }
+};
+
+static const language_strings_t* get_language_strings() {
+    if (strcmp(current_language, "en") == 0) {
+        return &languages[1];
+    } else if (strcmp(current_language, "fr") == 0) {
+        return &languages[2];
+    }
+    return &languages[0]; // Default to Spanish
+}
+
 static esp_err_t http_server_handler(httpd_req_t *req)
 {
-    char resp_str[2500];  // Increased size to accommodate new content
+    const language_strings_t* lang = get_language_strings();
 
-    // Generate the HTML response with improved styling, auto-refresh, and language selector
+    char resp_str[2500];
     snprintf(resp_str, sizeof(resp_str),
              "<html><head>"
              "<meta charset='UTF-8'>"
              "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-             "<meta http-equiv='refresh' content='5'>"
              "<style>"
              "body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; background-color: #f4f4f4; }"
              "h1 { color: #333; text-align: center; }"
@@ -60,47 +107,49 @@ static esp_err_t http_server_handler(httpd_req_t *req)
              "</head><body>"
              "<div class='language-selector'>"
              "<select id='language' onchange='changeLanguage()'>"
-             "<option value='es'>Español</option>"
-             "<option value='en'>English</option>"
-             "<option value='fr'>Français</option>"
+             "<option value='es' %s>Español</option>"
+             "<option value='en' %s>English</option>"
+             "<option value='fr' %s>Français</option>"
              "</select>"
              "</div>"
-             "<h1>Lizarte Clio Configuración</h1>"
+             "<h1>%s</h1>"
              "<div class='vin-info'>"
-             "<p><strong>VIN del vehículo:</strong> %s</p>"
-             "<p><strong>VIN de la columna:</strong> %s</p>"
+             "<p><strong>%s</strong> %s</p>"
+             "<p><strong>%s</strong> %s</p>"
              "</div>"
              "<div class='action-container'>"
              "<form action='/calibracion_angulo' method='get'>"
-             "<input type='submit' value='Calibración del ángulo' class='button'>"
+             "<input type='submit' value='%s' class='button'>"
              "</form>"
              "</div>"
              "<div class='action-container'>"
              "<form action='/clear_dtc' method='get'>"
-             "<input type='submit' value='Borrar Fallos' class='button'>"
+             "<input type='submit' value='%s' class='button'>"
              "</form>"
              "<span class='action-message'>%s</span>"
              "</div>"
              "<div class='action-container'>"
              "<form action='/check_status' method='get'>"
-             "<input type='submit' value='Comprobar calibración de ángulo' class='button'>"
+             "<input type='submit' value='%s' class='button'>"
              "</form>"
              "</div>"
              "<script>"
              "function changeLanguage() {"
              "  var lang = document.getElementById('language').value;"
-             "  console.log('Language changed to: ' + lang);"
-             "  // Here you would typically reload the page or update content"
+             "  window.location.href = '/change_language?lang=' + lang;"
              "}"
              "</script>"
              "</body></html>",
-             vin_vehiculo_global, vin_columna_global, dtc_message);
+             strcmp(current_language, "es") == 0 ? "selected" : "",
+             strcmp(current_language, "en") == 0 ? "selected" : "",
+             strcmp(current_language, "fr") == 0 ? "selected" : "",
+             lang->title, lang->vehicle_vin, vin_vehiculo_global, lang->column_vin, vin_columna_global,
+             lang->angle_calibration, lang->clear_faults, dtc_message, lang->check_angle_calibration);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, resp_str, strlen(resp_str));
     return ESP_OK;
 }
-
 
 static esp_err_t clear_dtc_handler(httpd_req_t *req)
 {
@@ -246,6 +295,33 @@ static esp_err_t send_calibration_frames_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t change_language_handler(httpd_req_t *req)
+{
+    char lang[3];
+    char buf[100];
+    int ret, remaining = req->content_len;
+
+    if ((ret = httpd_req_get_url_query_str(req, buf, sizeof(buf))) == ESP_OK) {
+        if (httpd_query_key_value(buf, "lang", lang, sizeof(lang)) == ESP_OK) {
+            ESP_LOGI(TAG, "Changing language to: %s", lang);
+            strncpy(current_language, lang, sizeof(current_language) - 1);
+            current_language[sizeof(current_language) - 1] = '\0';
+        }
+    }
+
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+static httpd_uri_t change_language = {
+    .uri       = "/change_language",
+    .method    = HTTP_GET,
+    .handler   = change_language_handler,
+    .user_ctx  = NULL
+};
+
 static httpd_uri_t root = {
     .uri       = "/",
     .method    = HTTP_GET,
@@ -314,6 +390,7 @@ static httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &get_status);
         httpd_register_uri_handler(server, &calibracion_angulo_uri);
         httpd_register_uri_handler(server, &send_calibration_frames_uri);
+        httpd_register_uri_handler(server, &change_language);
         return server;
     }
 
