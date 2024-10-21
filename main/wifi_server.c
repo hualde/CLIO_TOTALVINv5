@@ -74,7 +74,7 @@ static const language_strings_t languages[] = {
         .back_button = "Volver",
         .current_status = "Estado actual:",
         .no_verification = "No se ha realizado ninguna verificación",
-        .faults_cleared = "Los fallos se han borrado",
+        .faults_cleared = "Los fallos se han borrado, apague el coche y vuelva a encenderlo",
         .perform_verification = "Realizar verificación"
     },
     {
@@ -95,7 +95,7 @@ static const language_strings_t languages[] = {
         .back_button = "Back",
         .current_status = "Current status:",
         .no_verification = "No verification has been performed",
-        .faults_cleared = "Faults have been cleared",
+        .faults_cleared = "Faults have been cleared, turn off the car and turn it on again",
         .perform_verification = "Perform verification"
     },
     {
@@ -116,7 +116,7 @@ static const language_strings_t languages[] = {
         .back_button = "Retour",
         .current_status = "Statut actuel :",
         .no_verification = "Aucune vérification a été effectuée",
-        .faults_cleared = "Les défauts ont été effacés",
+        .faults_cleared = "Les défauts ont été effacés, éteignez la voiture et rallumez-la",
         .perform_verification = "Effectuer la vérification"
     }
 };
