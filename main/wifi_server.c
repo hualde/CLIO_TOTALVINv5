@@ -252,30 +252,41 @@ static esp_err_t check_status_handler(httpd_req_t *req)
              "<div class='status-container'>"
              "<h2>%s</h2>"
              "<p id='status-message'>%s</p>"
-             "<form action='/perform_status_check' method='get'>"
-             "<input type='submit' value='%s' class='button'>"
-             "</form>"
+             "<button id='checkButton' onclick='performStatusCheck()' class='button'>%s</button>"
              "</div>"
              "<br><a href='/' class='button'>%s</a>"
              "<script>"
+             "let isChecking = false;"
+             "function performStatusCheck() {"
+             "  if (isChecking) return;"
+             "  isChecking = true;"
+             "  document.getElementById('status-message').innerHTML = 'Verificando...';"
+             "  document.getElementById('checkButton').disabled = true;"
+             "  fetch('/perform_status_check')"
+             "    .then(response => {"
+             "      checkStatus();"
+             "    });"
+             "}"
              "function checkStatus() {"
              "  fetch('/get_status')"
              "    .then(response => response.text())"
              "    .then(data => {"
-             "      if (data !== '%s') {"
+             "      if (data.includes('Status')) {"
              "        document.getElementById('status-message').innerHTML = data;"
+             "        isChecking = false;"
+             "        document.getElementById('checkButton').disabled = false;"
+             "      } else if (isChecking) {"
+             "        setTimeout(checkStatus, 1000);"
              "      }"
              "    });"
              "}"
-             "setInterval(checkStatus, 5000);"
              "</script>"
              "</body></html>",
              lang->check_angle_calibration,
              lang->current_status,
              lang->no_verification,
              lang->perform_verification,
-             lang->back_button,
-             lang->no_verification
+             lang->back_button
     );
 
     httpd_resp_set_type(req, "text/html");
@@ -288,15 +299,19 @@ static esp_err_t perform_status_check_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Iniciando tarea de verificación de estado");
     xTaskCreate(check_status_task, "check_status_task", 2048, NULL, 5, NULL);
     
-    // Redirect back to the check_status page
-    httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "/check_status");
+    // Respond with a success status
+    httpd_resp_set_status(req, "200 OK");
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
 static esp_err_t get_status_handler(httpd_req_t *req)
 {
+    if (!real_status_loaded) {
+        httpd_resp_send(req, "Verificando...", strlen("Verificando..."));
+        return ESP_OK;
+    }
+
     const char* status_class = (get_global_status() == 4) ? "status-4" : (get_global_status() == 3) ? "status-3" : "";
     char status_str[100];
     snprintf(status_str, sizeof(status_str), 
@@ -307,6 +322,7 @@ static esp_err_t get_status_handler(httpd_req_t *req)
     httpd_resp_send(req, status_str, strlen(status_str));
     return ESP_OK;
 }
+
 
 static esp_err_t calibracion_angulo_handler(httpd_req_t *req)
 {
