@@ -30,7 +30,7 @@ Configuración Wi-Fi
 El sistema crea un punto de acceso Wi-Fi con las siguientes credenciales:
 
 SSID: Lizarte Clio
-Contraseña: RLizarteClio
+Contraseña: KLizarteClio
 Una vez conectado al punto de acceso, puedes acceder a la interfaz web en la dirección http://192.168.4.1 desde cualquier navegador web.
 
 Funcionalidades del Servidor Web
